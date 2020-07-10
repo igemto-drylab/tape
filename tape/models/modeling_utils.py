@@ -32,8 +32,8 @@ import torch.nn.functional as F
 
 from .file_utils import cached_path
 
-CONFIG_NAME = "config.json"
-WEIGHTS_NAME = "pytorch_model.bin"
+CONFIG_NAME = "bert-base-config.json"
+WEIGHTS_NAME = "bert-base-pytorch_model.bin"
 
 logger = logging.getLogger(__name__)
 
@@ -485,7 +485,7 @@ class ProteinModel(nn.Module):
                 cache_dir=cache_dir, return_unused_kwargs=True,
                 # force_download=force_download,
                 # resume_download=resume_download,
-                **kwargs
+                #**kwargs
             )
         else:
             model_kwargs = kwargs
