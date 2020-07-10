@@ -474,7 +474,12 @@ class ProteinModel(nn.Module):
         kwargs.pop("resume_download", False)
 
         # Load config
-        if config is None:
+        if kwargs is None and config is None:
+            config, model_kwargs = cls.config_class.from_pretrained(
+                pretrained_model_name_or_path, *model_args,
+                cache_dir=cache_dir, return_unused_kwargs=True
+            )
+        elif config is None:
             config, model_kwargs = cls.config_class.from_pretrained(
                 pretrained_model_name_or_path, *model_args,
                 cache_dir=cache_dir, return_unused_kwargs=True,
