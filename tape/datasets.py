@@ -307,7 +307,7 @@ class MaskedLanguageModelingDataset(Dataset):
         self.tokenizer = tokenizer
 
         data_path = Path(data_path)
-        data_file = f'pfam/pfam_{split}.lmdb'
+        data_file = f'petase_language/petase_language_{split}.json'
         self.data = dataset_factory(data_path / data_file, in_memory)
 
     def __len__(self) -> int:
@@ -315,7 +315,7 @@ class MaskedLanguageModelingDataset(Dataset):
 
     def __getitem__(self, index):
         item = self.data[index]
-        tokens = self.tokenizer.tokenize(item['primary'])
+        tokens = self.tokenizer.tokenize(item['sequence'])
         tokens = self.tokenizer.add_special_tokens(tokens)
         masked_tokens, labels = self._apply_bert_mask(tokens)
         masked_token_ids = np.array(
@@ -325,17 +325,18 @@ class MaskedLanguageModelingDataset(Dataset):
         masked_token_ids = np.array(
             self.tokenizer.convert_tokens_to_ids(masked_tokens), np.int64)
 
-        return masked_token_ids, input_mask, labels, item['clan'], item['family']
+        return masked_token_ids, input_mask, labels#, item['clan'], item['family']
 
     def collate_fn(self, batch: List[Any]) -> Dict[str, torch.Tensor]:
-        input_ids, input_mask, lm_label_ids, clan, family = tuple(zip(*batch))
+        # input_ids, input_mask, lm_label_ids, clan, family = tuple(zip(*batch))
+        input_ids, input_mask, lm_label_ids = tuple(zip(*batch))
 
         input_ids = torch.from_numpy(pad_sequences(input_ids, 0))
         input_mask = torch.from_numpy(pad_sequences(input_mask, 0))
         # ignore_index is -1
         lm_label_ids = torch.from_numpy(pad_sequences(lm_label_ids, -1))
-        clan = torch.LongTensor(clan)  # type: ignore
-        family = torch.LongTensor(family)  # type: ignore
+        # clan = torch.LongTensor(clan)  # type: ignore
+        # family = torch.LongTensor(family)  # type: ignore
 
         return {'input_ids': input_ids,
                 'input_mask': input_mask,
@@ -422,6 +423,50 @@ class LanguageModelingDataset(Dataset):
         return {'input_ids': torch_inputs,
                 'input_mask': input_mask,
                 'targets': torch_labels}
+
+
+
+
+
+@registry.register_task('catalytic')
+class CatalyticDataset(Dataset):
+    def __init__(self,
+                 data_path: Union[str, Path],
+                 split: str,
+                 tokenizer: Union[str, TAPETokenizer] = 'iupac',
+                 in_memory: bool = False):
+
+        if split not in ('train', 'valid', 'test'):
+            raise ValueError(f"Unrecognized split: {split}. "
+                             f"Must be one of ['train', 'valid', 'test']")
+        if isinstance(tokenizer, str):
+            tokenizer = TAPETokenizer(vocab=tokenizer)
+        self.tokenizer = tokenizer
+
+        data_path = Path(data_path)
+        data_file = f'petase/petase_{split}.json'
+        self.data = dataset_factory(data_path / data_file, in_memory)
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __getitem__(self, index: int):
+        item = self.data[index]
+        token_ids = self.tokenizer.encode(item['sequence'])
+        input_mask = np.ones_like(token_ids)
+        return token_ids, input_mask, float(item['log_activity'])
+
+    def collate_fn(self, batch: List[Tuple[Any, ...]]) -> Dict[str, torch.Tensor]:
+        input_ids, input_mask, catalytic_true_value = tuple(zip(*batch))
+        input_ids = torch.from_numpy(pad_sequences(input_ids, 0))
+        input_mask = torch.from_numpy(pad_sequences(input_mask, 0))
+        catalytic_true_value = torch.FloatTensor(catalytic_true_value)  # type: ignore
+        catalytic_true_value = catalytic_true_value.unsqueeze(1)
+
+        return {'input_ids': input_ids,
+                'input_mask': input_mask,
+                'targets': catalytic_true_value}
+
 
 
 @registry.register_task('fluorescence')
